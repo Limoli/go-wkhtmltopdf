@@ -8,6 +8,24 @@ Golang commandline wrapper for wkhtmltopdf
 
 See http://wkhtmltopdf.org/index.html for wkhtmltopdf docs.
 
+# Why this fork
+The fork is born in order to fix **QXcbConnection** error executing the command **wkhtmltopdf**:
+
+`QXcbConnection: Could not connect to display`
+
+Source: https://til.secretgeek.net/linux/wkhtmltopdf.html
+
+If this is your case, you can fix this problem following these steps:
+
+1. Install the wrapper **xvfb** executing `apt-get install -y xvfb libfontconfig wkhtmltopdf`
+2. Set as environment variable `WKHTMLTOPDF_WRAPPER_PATH = xvfb-run`
+
+In this way, the library will use that wrapper to execute **wkhtmltopdf**.
+
+So the result will be:
+
+`<wrapper> wkhtmltopdf`
+
 # What and why
 We needed a way to generate PDF documents from Go. These vary from invoices with highly customizable lay-outs to reports with tables, graphs and images. In our opinion the best way to do this was by using HTML/CSS templates as source for our PDFs. Using CSS print media types and millimeters instead of pixel units we can generate very acurate PDF documents using wkhtmltopdf.
 
