@@ -163,7 +163,7 @@ type PDFGenerator struct {
 
 //Args returns the commandline arguments as a string slice
 func (pdfg *PDFGenerator) Args() []string {
-	args := append([]string{}, pdfg.globalOptions.Args()...)
+	args := append([]string{"wkhtmltopdf"}, pdfg.globalOptions.Args()...)
 	args = append(args, pdfg.outlineOptions.Args()...)
 	if pdfg.Cover.Input != "" {
 		args = append(args, "cover")
@@ -265,7 +265,7 @@ func (pdfg *PDFGenerator) run() error {
 
 	errbuf := &bytes.Buffer{}
 
-	cmd := exec.Command("xvfb-run wkhtmltopdf", pdfg.Args()...)
+	cmd := exec.Command("xvfb-run", pdfg.Args()...)
 
 	log.Println("COMMAND", cmd.Path, cmd.Args)
 
