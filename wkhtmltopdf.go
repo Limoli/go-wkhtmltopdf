@@ -45,16 +45,6 @@ func GetPath() string {
 	return binPath.Get()
 }
 
-var wrapperCmd stringStore
-
-func SetWrapper(path string) {
-	wrapperCmd.Set(path)
-}
-
-func GetWrapper() string {
-	return wrapperCmd.Get()
-}
-
 // Page is the input struct for each page
 type Page struct {
 	Input string
@@ -161,13 +151,11 @@ type PDFGenerator struct {
 	globalOptions
 	outlineOptions
 
-	Wrapper    string
 	Cover      cover
 	TOC        toc
 	OutputFile string //filename to write to, default empty (writes to internal buffer)
 
 	binPath     string
-	wrapperPath string
 
 	outbuf bytes.Buffer
 	pages  []page
@@ -235,7 +223,7 @@ func (pdfg *PDFGenerator) WriteFile(filename string) error {
 //findPath finds the path to wkhtmltopdf by
 //- first looking in the current dir
 //- looking in the PATH and PATHEXT environment dirs
-//- using the WKHTMLTOPDF_PATH environment dir
+//- using the passed environment path
 //The path is cached, meaning you can not change the location of wkhtmltopdf in
 //a running program once it has been found
 
@@ -244,22 +232,27 @@ func (pdfg *PDFGenerator) findCommandPath(command string, env string) (string, e
 	if err != nil {
 		return "", err
 	}
+	log.Println("1", exeDir)
 	path, err := exec.LookPath(filepath.Join(exeDir, command))
 	if err == nil && path != "" {
 		return path, nil
 	}
+	log.Println("2", path)
 	path, err = exec.LookPath(command)
 	if err == nil && path != "" {
 		return path, nil
 	}
+	log.Println("3", path)
 	dir := os.Getenv(env)
 	if dir == "" {
 		return "", fmt.Errorf("%s not found", command)
 	}
+	log.Println("4", dir)
 	path, err = exec.LookPath(filepath.Join(dir, command))
 	if err == nil && path != "" {
 		return path, nil
 	}
+	log.Println("5", path)
 	return "", nil
 }
 
@@ -272,7 +265,7 @@ func (pdfg *PDFGenerator) run() error {
 
 	errbuf := &bytes.Buffer{}
 
-	cmd := exec.Command(pdfg.binPath, pdfg.Args()...)
+	cmd := exec.Command("xvfb-run wkhtmltopdf", pdfg.Args()...)
 
 	log.Println("COMMAND", cmd.Path, cmd.Args)
 
@@ -308,10 +301,11 @@ func (pdfg *PDFGenerator) initCommand() error {
 		return err
 	}
 
+	log.Println("CMD PATH", cmdPath)
+
 	wrapPath, _ := pdfg.findCommandPath("xvfb-run", "WKHTMLTOPDF_WRAPPER_PATH")
-	if err != nil {
-		return err
-	}
+
+	log.Println("WRAP PATH", wrapPath)
 
 	var finalPath = cmdPath
 	if wrapPath != "" {
