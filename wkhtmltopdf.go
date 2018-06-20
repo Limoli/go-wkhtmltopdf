@@ -15,11 +15,7 @@ import (
 
 const cmdDefault = "wkhtmltopdf"
 
-var clog = new(log.Logger)
-
-func init() {
-	clog.SetPrefix("go-wkhtmltopdf")
-}
+var clog = log.New(os.Stdout, "go-wkhtmltopdf ", 3)
 
 //the cached mutexed path as used by findPath()
 type stringStore struct {
