@@ -296,30 +296,29 @@ func (pdfg *PDFGenerator) run() error {
 }
 
 func (pdfg *PDFGenerator) initCommand() error {
+
+	var command string
+	var err error
+
 	if GetPath() != "" {
 		pdfg.binPath = GetPath()
 		return nil
 	}
 
-	mainPath, err := pdfg.findCommandPath("wkhtmltopdf", "WKHTMLTOPDF_PATH")
-	if err != nil {
-		return err
+	wrapPath, err := pdfg.findCommandPath("xvfb-run", "WKHTMLTOPDF_WRAPPER_PATH")
+	if err == nil && wrapPath != "" {
+		command = wrapPath + " wkhtmltopdf"
+	} else {
+		command, err = pdfg.findCommandPath("wkhtmltopdf", "WKHTMLTOPDF_PATH")
+		if err != nil {
+			return err
+		}
 	}
 
-	wrapPath, _ := pdfg.findCommandPath("xvfb-run", "WKHTMLTOPDF_WRAPPER_PATH")
-	if err != nil {
-		return err
-	}
+	log.Println("COMMAND", command)
 
-	var finalPath = mainPath
-	if wrapPath != "" {
-		finalPath = wrapPath + " " + mainPath
-	}
-
-	log.Println("PATH", finalPath)
-
-	binPath.Set(finalPath)
-	pdfg.binPath = finalPath
+	binPath.Set(command)
+	pdfg.binPath = command
 
 	return nil
 }
