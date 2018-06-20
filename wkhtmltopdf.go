@@ -15,6 +15,12 @@ import (
 
 const cmdDefault = "wkhtmltopdf"
 
+var clog = new(log.Logger)
+
+func init() {
+	clog.SetPrefix("go-wkhtmltopdf")
+}
+
 //the cached mutexed path as used by findPath()
 type stringStore struct {
 	val string
@@ -43,6 +49,16 @@ func SetPath(path string) {
 // GetPath gets the path to wkhtmltopdf
 func GetPath() string {
 	return binPath.Get()
+}
+
+var argCommand stringStore
+
+func SetArgCommand(path string) {
+	argCommand.Set(path)
+}
+
+func GetArgCommand() string {
+	return argCommand.Get()
 }
 
 // Page is the input struct for each page
@@ -237,8 +253,7 @@ func (pdfg *PDFGenerator) run() error {
 	errbuf := &bytes.Buffer{}
 
 	cmd := exec.Command(pdfg.binPath, pdfg.Args()...)
-
-	log.Println("COMMAND", pdfg.binPath, pdfg.Args())
+	clog.Println("command", pdfg.binPath, pdfg.Args())
 
 	cmd.Stdout = &pdfg.outbuf
 	cmd.Stderr = errbuf
@@ -264,6 +279,7 @@ func (pdfg *PDFGenerator) run() error {
 func (pdfg *PDFGenerator) initCommand() error {
 	if GetPath() != "" {
 		pdfg.binPath = GetPath()
+		pdfg.argCommand = GetArgCommand()
 		return nil
 	}
 
@@ -273,12 +289,10 @@ func (pdfg *PDFGenerator) initCommand() error {
 	}
 
 	if os.Getenv("WKHTMLTOPDF_WRAPPER_PATH") != "" {
-		log.Println("Setting argument")
 		pdfg.argCommand = command
+		argCommand.Set(pdfg.argCommand)
 		command = os.Getenv("WKHTMLTOPDF_WRAPPER_PATH")
 	}
-
-	log.Println("FINAL", command)
 
 	binPath.Set(command)
 	pdfg.binPath = command
@@ -305,7 +319,7 @@ func NewPDFGenerator() (*PDFGenerator, error) {
 
 	err := pdfg.initCommand()
 	if err != nil {
-		log.Fatal(err)
+		clog.Fatal(err)
 	}
 
 	return pdfg, err
