@@ -4,16 +4,16 @@ package wkhtmltopdf
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"log"
+	"os"
 )
+
+const cmdDefault = "wkhtmltopdf"
 
 //the cached mutexed path as used by findPath()
 type stringStore struct {
@@ -155,7 +155,8 @@ type PDFGenerator struct {
 	TOC        toc
 	OutputFile string //filename to write to, default empty (writes to internal buffer)
 
-	binPath     string
+	argCommand string
+	binPath    string
 
 	outbuf bytes.Buffer
 	pages  []page
@@ -163,7 +164,13 @@ type PDFGenerator struct {
 
 //Args returns the commandline arguments as a string slice
 func (pdfg *PDFGenerator) Args() []string {
-	args := append([]string{"wkhtmltopdf"}, pdfg.globalOptions.Args()...)
+
+	var argsInit []string
+	if pdfg.argCommand != "" {
+		argsInit = append(argsInit, pdfg.argCommand)
+	}
+
+	args := append(argsInit, pdfg.globalOptions.Args()...)
 	args = append(args, pdfg.outlineOptions.Args()...)
 	if pdfg.Cover.Input != "" {
 		args = append(args, "cover")
@@ -220,42 +227,6 @@ func (pdfg *PDFGenerator) WriteFile(filename string) error {
 	return ioutil.WriteFile(filename, pdfg.Bytes(), 0666)
 }
 
-//findPath finds the path to wkhtmltopdf by
-//- first looking in the current dir
-//- looking in the PATH and PATHEXT environment dirs
-//- using the passed environment path
-//The path is cached, meaning you can not change the location of wkhtmltopdf in
-//a running program once it has been found
-
-func (pdfg *PDFGenerator) findCommandPath(command string, env string) (string, error) {
-	exeDir, err := filepath.Abs(filepath.Dir(os.Args[0]))
-	if err != nil {
-		return "", err
-	}
-	log.Println("1", exeDir)
-	path, err := exec.LookPath(filepath.Join(exeDir, command))
-	if err == nil && path != "" {
-		return path, nil
-	}
-	log.Println("2", path)
-	path, err = exec.LookPath(command)
-	if err == nil && path != "" {
-		return path, nil
-	}
-	log.Println("3", path)
-	dir := os.Getenv(env)
-	if dir == "" {
-		return "", fmt.Errorf("%s not found", command)
-	}
-	log.Println("4", dir)
-	path, err = exec.LookPath(filepath.Join(dir, command))
-	if err == nil && path != "" {
-		return path, nil
-	}
-	log.Println("5", path)
-	return "", nil
-}
-
 // Create creates the PDF document and stores it in the internal buffer if no error is returned
 func (pdfg *PDFGenerator) Create() error {
 	return pdfg.run()
@@ -265,9 +236,9 @@ func (pdfg *PDFGenerator) run() error {
 
 	errbuf := &bytes.Buffer{}
 
-	cmd := exec.Command("xvfb-run", pdfg.Args()...)
+	cmd := exec.Command(pdfg.binPath, pdfg.Args()...)
 
-	log.Println("COMMAND", cmd.Path, cmd.Args)
+	log.Println("COMMAND", pdfg.binPath, pdfg.Args())
 
 	cmd.Stdout = &pdfg.outbuf
 	cmd.Stderr = errbuf
@@ -296,26 +267,21 @@ func (pdfg *PDFGenerator) initCommand() error {
 		return nil
 	}
 
-	cmdPath, err := pdfg.findCommandPath("wkhtmltopdf", "WKHTMLTOPDF_PATH")
-	if err != nil {
-		return err
+	var command = cmdDefault
+	if os.Getenv("WKHTMLTOPDF_PATH") != "" {
+		command = os.Getenv("WKHTMLTOPDF_PATH")
 	}
 
-	log.Println("CMD PATH", cmdPath)
-
-	wrapPath, _ := pdfg.findCommandPath("xvfb-run", "WKHTMLTOPDF_WRAPPER_PATH")
-
-	log.Println("WRAP PATH", wrapPath)
-
-	var finalPath = cmdPath
-	if wrapPath != "" {
-		finalPath = wrapPath + " " + cmdPath
+	if os.Getenv("WKHTMLTOPDF_WRAPPER_PATH") != "" {
+		log.Println("Setting argument")
+		pdfg.argCommand = command
+		command = os.Getenv("WKHTMLTOPDF_WRAPPER_PATH")
 	}
 
-	log.Println("FINAL PATH", finalPath)
+	log.Println("FINAL", command)
 
-	binPath.Set(finalPath)
-	pdfg.binPath = finalPath
+	binPath.Set(command)
+	pdfg.binPath = command
 
 	return nil
 }
@@ -363,4 +329,3 @@ func NewPDFPreparer() *PDFGenerator {
 		},
 	}
 }
-
