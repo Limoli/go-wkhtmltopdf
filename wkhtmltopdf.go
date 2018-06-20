@@ -274,6 +274,8 @@ func (pdfg *PDFGenerator) run() error {
 
 	cmd := exec.Command(pdfg.binPath, pdfg.Args()...)
 
+	log.Println("COMMAND", cmd.Path, cmd.Args)
+
 	cmd.Stdout = &pdfg.outbuf
 	cmd.Stderr = errbuf
 	//if there is a pageReader page (from Stdin) we set Stdin to that reader
@@ -296,29 +298,30 @@ func (pdfg *PDFGenerator) run() error {
 }
 
 func (pdfg *PDFGenerator) initCommand() error {
-
-	var command string
-	var err error
-
 	if GetPath() != "" {
 		pdfg.binPath = GetPath()
 		return nil
 	}
 
-	wrapPath, err := pdfg.findCommandPath("xvfb-run", "WKHTMLTOPDF_WRAPPER_PATH")
-	if err == nil && wrapPath != "" {
-		command = wrapPath + " wkhtmltopdf"
-	} else {
-		command, err = pdfg.findCommandPath("wkhtmltopdf", "WKHTMLTOPDF_PATH")
-		if err != nil {
-			return err
-		}
+	cmdPath, err := pdfg.findCommandPath("wkhtmltopdf", "WKHTMLTOPDF_PATH")
+	if err != nil {
+		return err
 	}
 
-	log.Println("COMMAND", command)
+	wrapPath, _ := pdfg.findCommandPath("xvfb-run", "WKHTMLTOPDF_WRAPPER_PATH")
+	if err != nil {
+		return err
+	}
 
-	binPath.Set(command)
-	pdfg.binPath = command
+	var finalPath = cmdPath
+	if wrapPath != "" {
+		finalPath = wrapPath + " " + cmdPath
+	}
+
+	log.Println("FINAL PATH", finalPath)
+
+	binPath.Set(finalPath)
+	pdfg.binPath = finalPath
 
 	return nil
 }
